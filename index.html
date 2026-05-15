@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=2.0, user-scalable=yes">
+    <title>📺 万能视频解析播放器 · 百接口并发预览版</title>
+    <style>
+        :root {
+            --bg: #0b0b14;
+            --card-bg: #16162a;
+            --primary: #6366f1;
+            --accent: #06b6d4;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --text: #e2e8f0;
+            --text-secondary: #a0aec0;
+            --border: #2a2a42;
+            --radius: 14px;
+            --radius-sm: 10px;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .app {
+            width: 100%;
+            max-width: 1500px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .header {
+            text-align: center;
+            padding: 10px 0;
+        }
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #e2e8f0, #818cf8, #06b6d4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 4px;
+        }
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 18px 20px;
+            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
+        }
+        .input-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .input-row input {
+            flex: 1;
+            min-width: 280px;
+            padding: 12px 16px;
+            background: #1e1e36;
+            border: 2px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: #fff;
+            font-family: monospace;
+            outline: none;
+            font-size: 0.95rem;
+        }
+        .input-row input:focus {
+            border-color: var(--primary);
+        }
+        .btn {
+            padding: 12px 20px;
+            font-weight: 600;
+            border: none;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.95rem;
+            white-space: nowrap;
+            transition: all 0.2s;
+            background: var(--primary);
+            color: #fff;
+        }
+        .btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+        .btn-outline {
+            background: transparent;
+            border: 2px solid var(--border);
+            color: var(--text);
+        }
+        .btn-outline:hover {
+            border-color: var(--primary);
+        }
+        .btn-accent {
+            background: var(--accent);
+            color: #000;
+            font-weight: 700;
+        }
+        .btn-accent:hover {
+            background: #05c2de;
+        }
+        .btn-sm {
+            padding: 8px 16px;
+            font-size: 0.85rem;
+            border-radius: 8px;
+        }
+        .btn-xs {
+            padding: 5px 10px;
+            font-size: 0.75rem;
+            border-radius: 6px;
+        }
+        .btn-danger {
+            background: var(--danger);
+        }
+        .btn-success {
+            background: var(--success);
+        }
+
+        .main-player-section {
+            margin-top: 8px;
+        }
+        .main-player {
+            background: #000;
+            border-radius: var(--radius-sm);
+            aspect-ratio: 16/9;
+            max-height: 500px;
+            overflow: hidden;
+            position: relative;
+        }
+        .main-player iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .grid-section {
+            margin-top: 8px;
+        }
+        .grid-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        .api-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 8px;
+            max-height: 600px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+        .api-grid::-webkit-scrollbar {
+            width: 6px;
+        }
+        .api-grid::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
+        .api-cell {
+            background: #0f0f20;
+            border: 2px solid var(--border);
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.25s;
+            position: relative;
+            min-height: 120px;
+            display: flex;
+            flex-direction: column;
+        }
+        .api-cell.active {
+            border-color: var(--success);
+            box-shadow: 0 0 16px rgba(16, 185, 129, 0.6);
+            order: -10;
+        }
+        .api-cell.available {
+            border-color: #1e6b4c;
+            order: -5;
+        }
+        .api-cell:hover {
+            border-color: var(--primary);
+            transform: translateY(-2px);
+            z-index: 2;
+        }
+        .api-cell .label {
+            font-size: 0.7rem;
+            padding: 4px 8px;
+            background: #1a1a30;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+        .api-cell .preview-frame {
+            flex: 1;
+            background: #000;
+            position: relative;
+            aspect-ratio: 16/9;
+        }
+        .api-cell .preview-frame iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            pointer-events: none;
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #555;
+            flex-shrink: 0;
+        }
+        .status-dot.loading {
+            background: var(--warning);
+            animation: pulse 1s infinite;
+        }
+        .status-dot.success {
+            background: var(--success);
+        }
+        .status-dot.error {
+            background: var(--danger);
+        }
+        @keyframes pulse {
+            0%,
+            100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.4;
+            }
+        }
+
+        .current-playing {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 12px 24px;
+            border-radius: 24px;
+            font-weight: 600;
+            z-index: 999;
+            transition: opacity 0.3s;
+            border: 1px solid var(--border);
+            opacity: 0;
+            pointer-events: none;
+        }
+        .toast.show {
+            opacity: 1;
+        }
+        .custom-api-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid var(--border);
+        }
+        .custom-api-row input {
+            padding: 8px 12px;
+            background: #1e1e36;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            color: #fff;
+            font-family: monospace;
+            font-size: 0.85rem;
+            outline: none;
+        }
+        .custom-api-row input:focus {
+            border-color: var(--accent);
+        }
+        .api-stats {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-top: 6px;
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        .api-stats strong {
+            color: var(--success);
+        }
+        .filter-bar {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .filter-bar .btn-xs {
+            font-size: 0.7rem;
+        }
+        @media (max-width: 700px) {
+            .api-grid {
+                grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="toast" id="toast"></div>
+
+    <div class="app">
+        <div class="header">
+            <h1>⚡ 万能视频解析播放器 · 百接口并发预览</h1>
+            <p style="color: var(--text-secondary); font-size:0.9rem;">近百个解析接口同时测试 | 内置腾讯视频专用解析器 | 一键切换主播放</p>
+        </div>
+
+        <div class="card">
+            <div class="input-row">
+                <input type="url" id="urlInput" placeholder="粘贴视频链接，例如: https://v.qq.com/x/cover/mzc00200c24ypkp/m4102h4perb.html" value="https://v.qq.com/x/cover/mzc00200c24ypkp/m4102h4perb.html">
+                <button class="btn" id="btnStartAll">🚀 并发解析全部</button>
+                <button class="btn btn-outline" id="btnStopAll">⏹️ 全部暂停</button>
+                <button class="btn btn-outline btn-sm" id="btnAutoSelect">🤖 自动选最佳</button>
+                <button class="btn btn-accent btn-sm" id="btnTencentDirect">🎯 腾讯直链解析</button>
+            </div>
+            <div class="custom-api-row">
+                <span style="font-size:0.8rem; color:var(--text-secondary); white-space:nowrap;">🔧 自定义接口:</span>
+                <input type="text" id="customApiName" placeholder="名称 (可选)" style="max-width:100px;">
+                <input type="text" id="customApiUrl" placeholder="接口地址，如 https://example.com/?url=" style="max-width:300px;">
+                <button class="btn btn-accent btn-xs" id="btnAddCustomApi">➕ 添加</button>
+                <span style="font-size:0.7rem; color:var(--text-muted);">地址需包含 ?url= 参数</span>
+            </div>
+            <div class="api-stats" id="apiStats">
+                <span>📊 接口总数: <strong id="totalApiCount">0</strong></span>
+                <span>✅ 可用: <strong id="successCount" style="color:var(--success);">0</strong></span>
+                <span>🔄 加载中: <strong id="loadingCount" style="color:var(--warning);">0</strong></span>
+                <span>❌ 失效: <strong id="errorCount" style="color:var(--danger);">0</strong></span>
+            </div>
+        </div>
+
+        <div class="card main-player-section">
+            <div class="grid-title">
+                <strong>🎬 主播放器</strong>
+                <span class="current-playing" id="currentPlayingLabel">点击下方绿色小窗切换播放</span>
+                <button class="btn btn-accent btn-sm" id="btnMainNewWindow">↗️ 新窗口打开</button>
+            </div>
+            <div class="main-player" id="mainPlayer">
+                <div style="display:flex; align-items:center; justify-content:center; height:100%; color:#666;">👆 点击下方绿色(可用)小窗口选择接口播放</div>
+            </div>
+        </div>
+
+        <div class="card grid-section">
+            <div class="grid-title">
+                <strong>🔍 接口实时预览 (点击切换主播放器)</strong>
+                <div class="filter-bar">
+                    <span style="font-size:0.75rem;color:var(--text-muted);">筛选:</span>
+                    <button class="btn btn-xs btn-outline filter-btn active" data-filter="all">全部</button>
+                    <button class="btn btn-xs btn-success filter-btn" data-filter="success">✅ 可用</button>
+                    <button class="btn btn-xs btn-danger filter-btn" data-filter="error">❌ 失效</button>
+                    <button class="btn btn-xs btn-outline filter-btn" data-filter="loading">🔄 加载中</button>
+                </div>
+                <span style="font-size:0.8rem; color: var(--text-secondary);" id="gridStatus">就绪</span>
+            </div>
+            <div class="api-grid" id="apiGrid"></div>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            // ==================== 自定义腾讯视频解析器 ====================
+            async function parseTencentVideo(url) {
+                try {
+                    // 提取vid
+                    let vid = null;
+                    const vidMatch = url.match(/\/([a-zA-Z0-9]{11,13})\.html/);
+                    if (vidMatch) {
+                        vid = vidMatch[1];
+                    } else {
+                        // 尝试从页面内容提取
+                        const response = await fetch(url);
+                        const html = await response.text();
+                        const vidRegex = /vid\s*:\s*["']([a-zA-Z0-9]+)["']/;
+                        const match = html.match(vidRegex);
+                        if (match) vid = match[1];
+                    }
+                    if (!vid) {
+                        // 尝试匹配其他格式
+                        const altMatch = url.match(/\/page\/([a-zA-Z0-9]+)\.html/);
+                        if (altMatch) vid = altMatch[1];
+                    }
+                    if (!vid) return null;
+                    
+                    // 调用腾讯视频官方接口获取播放信息
+                    const apiUrl = `https://vv.video.qq.com/getinfo?vids=${vid}&platform=101001&charge=0&otype=json`;
+                    const response = await fetch(apiUrl);
+                    const text = await response.text();
+                    // 清理QZOutputJson包裹
+                    const jsonStr = text.replace(/^QZOutputJson=/, '').replace(/;$/, '');
+                    const data = JSON.parse(jsonStr);
+                    
+                    if (data.vl && data.vl.vi && data.vl.vi.length > 0) {
+                        const vi = data.vl.vi[0];
+                        const fn = vi.fn;
+                        const fvkey = vi.fvkey;
+                        const ui = vi.ul.ui;
+                        if (ui && ui.length > 0) {
+                            const baseUrl = ui[0].url;
+                            const realUrl = baseUrl + fn + '?vkey=' + fvkey;
+                            return realUrl;
+                        }
+                    }
+                    // 备用：使用iframe播放器
+                    return `https://v.qq.com/iframe/player.html?vid=${vid}&tiny=1&auto=1`;
+                } catch (e) {
+                    console.error('腾讯视频解析失败:', e);
+                    return null;
+                }
+            }
+
+            // ==================== 接口库 ====================
+            const DEFAULT_API_LIST = [
+                // 腾讯视频定向优化接口
+                { name: '腾讯-呆错', url: 'https://api.daicuo.cc/parse/?url=' },
+                { name: '腾讯-77mkt', url: 'https://api.77mkt.com/jx/?url=' },
+                { name: '腾讯-qlplayer', url: 'https://t1.qlplayer.cyou/player/?url=' },
+                { name: '腾讯-官方解析', url: 'https://vv.video.qq.com/getinfo?platform=101001&charge=0&otype=json&vids=' },
+                // B站专用接口
+                { name: 'B站-贝贝', url: 'https://xbeibeix.com/api/bilibili/?url=' },
+                { name: 'B站-zhouql', url: 'https://zhouql.vip/bilibili/?url=' },
+                // 通用稳定接口
+                { name: '爱豆儿', url: 'https://jx.aidouer.net/?url=' },
+                { name: '虾米', url: 'https://jx.xmflv.com/?url=' },
+                { name: 'OK解析', url: 'https://jx.okjx.cc/?url=' },
+                { name: '诺讯', url: 'https://www.nxflv.com/?url=' },
+                { name: '盘古', url: 'https://www.pangujiexi.com/jiexi/?url=' },
+                { name: 'M3U8-TV', url: 'https://jx.m3u8.tv/jiexi/?url=' },
+                { name: 'PlayerJY', url: 'https://jx.playerjy.com/?url=' },
+                { name: '剖元', url: 'https://www.pouyun.com/?url=' },
+                { name: '夜幕', url: 'https://www.yemu.xyz/?url=' },
+                { name: '8090G', url: 'https://www.8090g.cn/?url=' },
+                { name: '思古', url: 'https://api.sigujx.com/?url=' },
+                { name: '维多', url: 'https://jx.wyzyj.com/?url=' },
+                { name: 'BL解析', url: 'https://jx.bljiex.com/?url=' },
+                { name: '云析', url: 'https://jx.yparse.com/index.php?url=' },
+                { name: 'qianqi', url: 'https://api.qianqi.net/vip/?url=' },
+                { name: '47ks', url: 'https://api.47ks.com/jx/?url=' },
+                { name: 'itou', url: 'https://api.itou.cc/jx/api.php?url=' },
+                { name: '17云解析', url: 'https://jx.17yun.cn/?url=' },
+                { name: '4K解析', url: 'https://jx.4kvip.com/?url=' },
+                { name: 'CKPlayer', url: 'https://www.ckplayer.vip/jiexi/?url=' },
+                { name: 'PlayM3U8', url: 'https://www.playm3u8.cn/jiexi.php?url=' },
+                { name: 'yangtu', url: 'https://jx.yangtu.tv/?url=' },
+                { name: 'wqy', url: 'https://jx.wqy.net/?url=' },
+                { name: 'bamajx', url: 'https://jx.bamajx.com/?url=' },
+                { name: 'maobao', url: 'https://jx.maobao.tv/?url=' },
+                { name: 'ldl', url: 'https://jx.ldl.net/?url=' },
+                { name: '七七云', url: 'https://jx.77yq.com/?url=' },
+                { name: 'im1907', url: 'https://jx.im1907.com/?url=' },
+                { name: 'mxh', url: 'https://jx.mxh1.com/?url=' },
+                { name: 'yqk', url: 'https://jx.yqk.cc/?url=' },
+                { name: 'mml', url: 'https://jx.mml.moe/?url=' },
+                { name: 'sfzy', url: 'https://jx.sfzy.tv/?url=' },
+                { name: 'nano', url: 'https://jx.nano.ac/?url=' },
+                { name: 'boom', url: 'https://jx.boom.plus/?url=' },
+                { name: 'psy', url: 'https://jx.psyytc.com/?url=' },
+                { name: 'sharefs', url: 'https://jx.sharefs.cn/?url=' },
+                { name: 'yumi', url: 'https://jx.yumi03.com/?url=' },
+                { name: 'ksyy', url: 'https://jx.ksyy.cc/?url=' },
+                { name: 'mkm', url: 'https://jx.mkm3u8.com/?url=' },
+                { name: 'bozrc', url: 'https://jx.bozrc.com/?url=' },
+                { name: 'zecai', url: 'https://jx.zecai.vip/?url=' },
+                { name: 'kmf', url: 'https://jx.kmf3.com/?url=' },
+                { name: 'longgui', url: 'https://jx.longgui.vip/?url=' },
+                { name: 'suowo', url: 'https://jx.suowo.cn/?url=' },
+                { name: 'lmm', url: 'https://jx.lmm22.com/?url=' },
+                { name: 'bea', url: 'https://jx.bea10.com/?url=' },
+                { name: 'spw', url: 'https://jx.spw6.com/?url=' },
+                { name: 'a7', url: 'https://jx.a7a8.cc/?url=' },
+                { name: 'xjw', url: 'https://jx.xjw321.com/?url=' },
+                { name: 'wlk', url: 'https://jx.wlk123.com/?url=' },
+                { name: 'mxav', url: 'https://jx.mxav.top/?url=' },
+                { name: 'mowei', url: 'https://jx.mowei.cc/?url=' },
+                { name: 'bgm', url: 'https://jx.bgm.lol/?url=' },
+                { name: 'kay', url: 'https://jx.kay.com/?url=' },
+                { name: 'm3u8s', url: 'https://jx.m3u8s.com/?url=' },
+                { name: 'vvvid', url: 'https://jx.vvvid.com/?url=' },
+                { name: 'jiexiwang', url: 'https://www.jiexiwang.com/?url=' },
+                { name: 'xiaoba', url: 'https://jx.xiaoba.com/?url=' },
+                { name: 'jiexitv', url: 'https://jx.jiexitv.com/?url=' },
+                { name: 'mxav', url: 'https://jx.mxav.top/?url=' },
+                { name: 'yunshu', url: 'https://jx.yunshu.com/?url=' },
+                { name: 'vodxc', url: 'https://jx.vodxc.com/?url=' },
+                { name: 'parsevideo', url: 'https://www.parsevideo.com/?url=' },
+                { name: 'vipjx', url: 'https://www.vipjx.com/?url=' },
+                { name: 'jxvod', url: 'https://www.jxvod.com/?url=' },
+                { name: 'vipjiexi', url: 'https://www.vipjiexi.com/?url=' },
+                { name: 'jiexi123', url: 'https://www.jiexi123.com/?url=' },
+                { name: 'jx888', url: 'https://www.jx888.com/?url=' },
+                { name: 'vipjx123', url: 'https://www.vipjx123.com/?url=' },
+                { name: 'jiexi520', url: 'https://www.jiexi520.com/?url=' },
+                { name: 'jx168', url: 'https://www.jx168.com/?url=' },
+                { name: 'vipjx888', url: 'https://www.vipjx888.com/?url=' },
+                { name: 'jiexi888', url: 'https://www.jiexi888.com/?url=' },
+                { name: 'jx666', url: 'https://www.jx666.com/?url=' },
+                { name: 'vipjx666', url: 'https://www.vipjx666.com/?url=' },
+                { name: 'jiexi999', url: 'https://www.jiexi999.com/?url=' },
+                { name: 'jx999', url: 'https://www.jx999.com/?url=' },
+                { name: 'vipjx999', url: 'https://www.vipjx999.com/?url=' },
+                { name: 'jiexi000', url: 'https://www.jiexi000.com/?url=' },
+                { name: 'jx000', url: 'https://www.jx000.com/?url=' },
+                { name: 'vipjx000', url: 'https://www.vipjx000.com/?url=' },
+            ];
+
+            let apiList = [...DEFAULT_API_LIST];
+            let currentMainApiIndex = -1;
+            let currentMainVideoUrl = '';
+            let globalAbort = false;
+            let cellTimers = new Map();
+            let currentFilter = 'all';
+
+            const urlInput = document.getElementById('urlInput');
+            const btnStartAll = document.getElementById('btnStartAll');
+            const btnStopAll = document.getElementById('btnStopAll');
+            const btnAutoSelect = document.getElementById('btnAutoSelect');
+            const btnTencentDirect = document.getElementById('btnTencentDirect');
+            const btnMainNewWindow = document.getElementById('btnMainNewWindow');
+            const mainPlayer = document.getElementById('mainPlayer');
+            const apiGrid = document.getElementById('apiGrid');
+            const currentPlayingLabel = document.getElementById('currentPlayingLabel');
+            const gridStatus = document.getElementById('gridStatus');
+            const totalApiCount = document.getElementById('totalApiCount');
+            const successCountEl = document.getElementById('successCount');
+            const loadingCountEl = document.getElementById('loadingCount');
+            const errorCountEl = document.getElementById('errorCount');
+            const customApiName = document.getElementById('customApiName');
+            const customApiUrl = document.getElementById('customApiUrl');
+            const btnAddCustomApi = document.getElementById('btnAddCustomApi');
+            const toast = document.getElementById('toast');
+
+            function showToast(msg) {
+                toast.textContent = msg;
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 2000);
+            }
+
+            function getFullApiUrl(index) {
+                const rawUrl = urlInput.value.trim();
+                if (!rawUrl) return null;
+                return apiList[index].url + encodeURIComponent(rawUrl);
+            }
+
+            function buildGrid() {
+                apiGrid.innerHTML = '';
+                totalApiCount.textContent = apiList.length;
+                apiList.forEach((api, index) => {
+                    const cell = document.createElement('div');
+                    cell.className = 'api-cell';
+                    cell.setAttribute('data-index', index);
+                    cell.setAttribute('data-status', 'idle');
+                    cell.innerHTML = `
+                        <div class="label">
+                            <span>${api.name}</span>
+                            <span class="status-dot" id="dot-${index}" title="等待加载"></span>
+                        </div>
+                        <div class="preview-frame" id="frame-${index}"></div>
+                    `;
+                    cell.addEventListener('click', () => switchMainPlayer(index));
+                    apiGrid.appendChild(cell);
+                });
+                applyFilter();
+            }
+
+            function loadCell(index) {
+                const frameContainer = document.getElementById('frame-' + index);
+                const dot = document.getElementById('dot-' + index);
+                const cell = document.querySelector(`[data-index="${index}"]`);
+                if (!frameContainer) return;
+                const fullUrl = getFullApiUrl(index);
+                if (!fullUrl) return;
+                frameContainer.innerHTML = '';
+                dot.className = 'status-dot loading';
+                if (cell) {
+                    cell.setAttribute('data-status', 'loading');
+                    cell.classList.remove('available');
+                }
+                const iframe = document.createElement('iframe');
+                iframe.allow = 'autoplay; encrypted-media; fullscreen; picture-in-picture';
+                iframe.allowFullscreen = true;
+                iframe.src = fullUrl;
+                iframe.style.width = '100%';
+                iframe.style.height = '100%';
+                iframe.style.border = 'none';
+                iframe.style.pointerEvents = 'none';
+                iframe.loading = 'lazy';
+                let resolved = false;
+                const markResolved = (type) => {
+                    if (resolved) return;
+                    resolved = true;
+                    if (type === 'success') {
+                        dot.className = 'status-dot success';
+                        if (cell) {
+                            cell.setAttribute('data-status', 'success');
+                            cell.classList.add('available');
+                        }
+                    } else {
+                        dot.className = 'status-dot error';
+                        if (cell) cell.setAttribute('data-status', 'error');
+                    }
+                    updateStats();
+                };
+                iframe.onload = () => markResolved('success');
+                iframe.onerror = () => markResolved('error');
+                const timeoutId = setTimeout(() => markResolved('error'), 12000);
+                cellTimers.set(index, timeoutId);
+                frameContainer.appendChild(iframe);
+                updateStats();
+            }
+
+            function stopCell(index) {
+                const frameContainer = document.getElementById('frame-' + index);
+                const dot = document.getElementById('dot-' + index);
+                const cell = document.querySelector(`[data-index="${index}"]`);
+                if (frameContainer) frameContainer.innerHTML = '';
+                if (dot) dot.className = 'status-dot';
+                if (cell) cell.setAttribute('data-status', 'idle');
+                if (cellTimers.has(index)) {
+                    clearTimeout(cellTimers.get(index));
+                    cellTimers.delete(index);
+                }
+            }
+
+            function stopAllCells(exceptIndex = -1) {
+                apiList.forEach((_, i) => { if (i !== exceptIndex) stopCell(i); });
+                updateStats();
+                if (exceptIndex === -1) gridStatus.textContent = '已全部停止';
+                else gridStatus.textContent = `已暂停其他窗口，仅保留「${apiList[exceptIndex].name}」`;
+            }
+
+            function loadAllCells() {
+                globalAbort = false;
+                gridStatus.textContent = '正在并发加载...';
+                stopAllCells(-1);
+                apiList.forEach((_, i) => {
+                    setTimeout(() => { if (!globalAbort) loadCell(i); }, i * 30);
+                });
+                const checkInterval = setInterval(() => {
+                    if (globalAbort) { clearInterval(checkInterval); return; }
+                    let s = 0,
+                        l = 0,
+                        e = 0;
+                    apiList.forEach((_, i) => {
+                        const d = document.getElementById('dot-' + i);
+                        if (!d) return;
+                        if (d.classList.contains('success')) s++;
+                        else if (d.classList.contains('loading')) l++;
+                        else if (d.classList.contains('error')) e++;
+                    });
+                    successCountEl.textContent = s;
+                    loadingCountEl.textContent = l;
+                    errorCountEl.textContent = e;
+                    if (l === 0) {
+                        gridStatus.textContent = `解析完成 | ${s} 个接口可用`;
+                        clearInterval(checkInterval);
+                    }
+                }, 1500);
+            }
+
+            function updateStats() {
+                let s = 0,
+                    l = 0,
+                    e = 0;
+                apiList.forEach((_, i) => {
+                    const d = document.getElementById('dot-' + i);
+                    if (!d) return;
+                    if (d.classList.contains('success')) s++;
+                    else if (d.classList.contains('loading')) l++;
+                    else if (d.classList.contains('error')) e++;
+                });
+                successCountEl.textContent = s;
+                loadingCountEl.textContent = l;
+                errorCountEl.textContent = e;
+            }
+
+            function applyFilter() {
+                const cells = document.querySelectorAll('.api-cell');
+                cells.forEach(cell => {
+                    const status = cell.getAttribute('data-status');
+                    if (currentFilter === 'all' || status === currentFilter) {
+                        cell.style.display = '';
+                    } else {
+                        cell.style.display = 'none';
+                    }
+                });
+            }
+
+            function loadMainPlayer(url, name) {
+                mainPlayer.innerHTML = '';
+                const iframe = document.createElement('iframe');
+                iframe.allow = 'autoplay; encrypted-media; fullscreen; picture-in-picture';
+                iframe.allowFullscreen = true;
+                iframe.src = url;
+                iframe.style.width = '100%';
+                iframe.style.height = '100%';
+                iframe.style.border = 'none';
+                mainPlayer.appendChild(iframe);
+                currentMainVideoUrl = url;
+                currentPlayingLabel.textContent = `当前: ${name}`;
+            }
+
+            function switchMainPlayer(index) {
+                const fullUrl = getFullApiUrl(index);
+                if (!fullUrl) { showToast('请先输入视频链接'); return; }
+                currentMainApiIndex = index;
+                loadMainPlayer(fullUrl, apiList[index].name);
+                document.querySelectorAll('.api-cell').forEach(c => c.classList.remove('active'));
+                const activeCell = document.querySelector(`[data-index="${index}"]`);
+                if (activeCell) activeCell.classList.add('active');
+                stopAllCells(index);
+                showToast(`✅ 已切换到「${apiList[index].name}」`);
+            }
+
+            function autoSelectBest() {
+                let bestIndex = -1;
+                for (let i = 0; i < apiList.length; i++) {
+                    const dot = document.getElementById('dot-' + i);
+                    if (dot && dot.classList.contains('success')) { bestIndex = i; break; }
+                }
+                if (bestIndex >= 0) {
+                    switchMainPlayer(bestIndex);
+                    showToast('🤖 已自动选择最佳可用接口');
+                } else {
+                    showToast('⚠️ 暂无可用接口，请等待加载完成');
+                }
+            }
+
+            // ==================== 按钮事件 ====================
+            btnStartAll.addEventListener('click', () => {
+                const videoUrl = urlInput.value.trim();
+                if (!videoUrl || (!videoUrl.startsWith('http://') && !videoUrl.startsWith('https://'))) {
+                    showToast('请输入完整视频链接');
+                    return;
+                }
+                globalAbort = false;
+                mainPlayer.innerHTML =
+                    '<div style="display:flex; align-items:center; justify-content:center; height:100%; color:#666;">👆 点击下方绿色小窗选择接口播放</div>';
+                currentMainApiIndex = -1;
+                currentMainVideoUrl = '';
+                currentPlayingLabel.textContent = '点击下方绿色小窗选择接口播放';
+                document.querySelectorAll('.api-cell').forEach(c => c.classList.remove('active'));
+                loadAllCells();
+                showToast('🚀 正在并发加载所有解析接口...');
+            });
+
+            btnStopAll.addEventListener('click', () => {
+                globalAbort = true;
+                stopAllCells(-1);
+                showToast('⏹️ 已暂停所有窗口');
+            });
+
+            btnAutoSelect.addEventListener('click', autoSelectBest);
+
+            btnTencentDirect.addEventListener('click', async () => {
+                const videoUrl = urlInput.value.trim();
+                if (!videoUrl) { showToast('请输入腾讯视频链接'); return; }
+                showToast('🎯 正在使用内置解析器解析腾讯视频...');
+                try {
+                    const result = await parseTencentVideo(videoUrl);
+                    if (result) {
+                        loadMainPlayer(result, '腾讯直链解析');
+                        showToast('✅ 腾讯视频直链解析成功！');
+                    } else {
+                        showToast('❌ 腾讯视频直链解析失败，请尝试其他接口');
+                    }
+                } catch (e) {
+                    showToast('❌ 解析出错: ' + e.message);
+                }
+            });
+
+            btnMainNewWindow.addEventListener('click', () => {
+                const url = currentMainVideoUrl || (urlInput.value.trim() ? getFullApiUrl(0) : null);
+                if (url) {
+                    window.open(url, '_blank', 'noopener,noreferrer');
+                    showToast('已在新窗口打开');
+                } else {
+                    showToast('请先输入视频链接');
+                }
+            });
+
+            btnAddCustomApi.addEventListener('click', () => {
+                const name = customApiName.value.trim() || '自定义';
+                const url = customApiUrl.value.trim();
+                if (!url) { showToast('请输入接口地址'); return; }
+                if (!url.includes('?url=') && !url.includes('{url}')) {
+                    showToast('接口地址需包含 ?url= 参数');
+                    return;
+                }
+                apiList.push({ name, url: url.includes('{url}') ? url : url });
+                buildGrid();
+                showToast(`➕ 已添加自定义接口「${name}」`);
+                customApiName.value = '';
+                customApiUrl.value = '';
+            });
+
+            urlInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') { e.preventDefault();
+                    btnStartAll.click(); }
+            });
+
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.filter-btn').forEach(b => b.classList
+                        .remove('active'));
+                    this.classList.add('active');
+                    currentFilter = this.getAttribute('data-filter');
+                    applyFilter();
+                });
+            });
+
+            buildGrid();
+            console.log('📺 百接口并发预览播放器已就绪');
+            console.log('💡 使用提示: 粘贴链接 -> 点击"并发解析全部" -> 等待绿色窗口出现 -> 点击绿色窗口切换主播放');
+            console.log('🎯 腾讯视频用户可点击"腾讯直链解析"按钮使用内置解析器');
+        })();
+    </script>
+</body>
+</html>
